@@ -1,0 +1,29 @@
+{
+  "usage": {
+    "sample_id": "s-1",
+    "agent_id": "agent-acme",
+    "workspace_id": "ws-1",
+    "region": "eu-se-1",
+    "observed_at": "2026-07-14T10:00:00Z",
+    "interval_secs": 60,
+    "workloads": [
+      {
+        "workload_id": "wh-1",
+        "workload_kind": "trino",
+        "component": "coordinator",
+        "resources": [
+          {"resource_type": "CPU", "quantity": 2, "unit": "vcpu", "replica_count": 1},
+          {"resource_type": "MEMORY", "quantity": 8, "unit": "gib", "replica_count": 1}
+        ]
+      },
+      {
+        "workload_id": "wh-1",
+        "workload_kind": "trino",
+        "component": "worker",
+        "resources": [
+          {"resource_type": "GPU", "sku": "a100", "quantity": 1, "unit": "gpu", "replica_count": 3}
+        ]
+      }
+    ]
+  }
+}

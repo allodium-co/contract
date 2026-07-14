@@ -1,0 +1,35 @@
+{
+  "desired": {
+    "warehouses": [
+      {
+        "id": "wh-1",
+        "tenant_id": "acme",
+        "name": "analytics",
+        "profile": "medium",
+        "heap_size_gb": 8,
+        "max_query_memory_per_node": "4GB",
+        "max_total_memory_per_node": "6GB",
+        "heap_headroom": "2GB",
+        "worker_mode": "keda",
+        "worker_profile": "medium",
+        "worker_heap_size_gb": 8,
+        "worker_min_replicas": 1,
+        "worker_max_replicas": 5,
+        "idle_timeout_mins": 30
+      }
+    ],
+    "sparkClusters": [
+      {
+        "id": "spark-1",
+        "tenant_id": "acme",
+        "name": "etl",
+        "executorInstances": 3,
+        "executorMemory": "4g",
+        "executorCores": 2,
+        "driverVCPUs": 2,
+        "driverMemoryGB": 4,
+        "packages": ["org.apache.iceberg:iceberg-spark-runtime:1.5.0"]
+      }
+    ]
+  }
+}

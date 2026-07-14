@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+// COMPATIBILITY: this file is a human-readable SPEC of the agent stream, not the
+// compiled wire format — the wire is hand-written JSON (decision af9z.2), and the
+// canonical schema is the Go contract module (platform/contract: agentpb +
+// clusterspec). Both this spec and those types are ADDITIVE-ONLY: fields may be
+// added, but a field number, name, JSON tag, or type is NEVER changed or removed
+// without the deprecation process. The golden round-trip gate in
+// platform/contract/agentwire enforces this in CI. Policy + support window
+// (agent N / N-1 / N-2): docs/repo-split/version-compatibility.md.
+
+package agent.v1;
+
+option go_package = "github.com/allodium-co/contract/agentpb";
+
+// AgentService is the long-lived gRPC streaming endpoint the Data Plane Agent
+// dials outbound. Both sides send AgentMessage frames over the same stream:
+// the control plane pushes ClusterCommand, the agent responds with ClusterStatus.
+service AgentService {
+  rpc StreamCommands(stream AgentMessage) returns (stream AgentMessage);
+}
+
+message AgentMessage {
+  oneof payload {
+    ClusterCommand command = 1;
+    ClusterStatus  status  = 2;
+  }
+}
+
+message ClusterCommand {
+  string      id      = 1;
+  CommandType type    = 2;
+  string      payload = 3; // JSON-encoded extra params (e.g. replica count for SCALE)
+}
+
+message ClusterStatus {
+  string command_id = 1;
+  string phase      = 2; // stopped | starting | running | error
+  string message    = 3;
+  int64  timestamp  = 4; // Unix seconds
+}
+
+enum CommandType {
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  START                    = 1;
+  STOP                     = 2;
+  SCALE                    = 3;
+}
