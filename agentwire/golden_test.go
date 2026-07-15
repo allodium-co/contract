@@ -1,8 +1,8 @@
 package agentwire_test
 
 // This is the CI backward-compatibility gate for the control-plane<->agent wire
-// contract (af9z.11). Per af9z.2 the wire is hand-written JSON (no protobuf/buf),
-// so the gate is a golden round-trip test rather than `buf breaking`.
+// contract. The wire is hand-written JSON (no protobuf/buf), so the gate is a
+// golden round-trip test rather than `buf breaking`.
 //
 // The testdata/*.json files are FROZEN samples of what an OLDER peer emits — one
 // per AgentMessage payload variant, with every field of that generation
@@ -75,7 +75,7 @@ func TestWireGoldenBackwardCompat(t *testing.T) {
 			if diff := missingFrom(old, got, ""); diff != "" {
 				t.Errorf("breaking wire change: golden %s no longer round-trips through the current contract:\n%s\n\n"+
 					"A field was removed, renamed, or retyped. This breaks older peers. See "+
-					"docs/repo-split/version-compatibility.md for the additive-only policy.", f, diff)
+					"docs/version-compatibility.md for the additive-only policy.", f, diff)
 			}
 		})
 	}

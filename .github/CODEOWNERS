@@ -1,12 +1,11 @@
 # Code owners for allodium-co/contract
 #
 # The wire contract is load-bearing for both planes and must stay additive-only,
-# so every change requires maintainer review. Replace the placeholder team with
-# the real GitHub team/handles before the repo goes public.
+# so every change requires maintainer review.
 
-*                   @allodium-co/contract-maintainers
+*                   @allodium-co/contract
 
 # The proto definitions and desired-state schema are the most sensitive surface.
-/agentpb/           @allodium-co/contract-maintainers
-/clusterspec/       @allodium-co/contract-maintainers
-*.proto             @allodium-co/contract-maintainers
+/agentpb/           @allodium-co/contract
+/clusterspec/       @allodium-co/contract
+*.proto             @allodium-co/contract

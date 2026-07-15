@@ -8,7 +8,7 @@ desired-state JSON schema. It contains no running services and no secrets.
 
 Security-relevant issues here are almost always **contract-shape** problems —
 for example, a message field that could let one side smuggle data across the
-[trust boundary](https://github.com/allodium-co/dataplane/blob/main/docs/TRUST-BOUNDARY.md),
+trust boundary between the data plane and control plane,
 a change that breaks backward/forward compatibility, or an under-specified
 field that permits an unsafe interpretation on one side.
 

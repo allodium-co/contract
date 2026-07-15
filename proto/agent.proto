@@ -1,13 +1,12 @@
 syntax = "proto3";
 
 // COMPATIBILITY: this file is a human-readable SPEC of the agent stream, not the
-// compiled wire format — the wire is hand-written JSON (decision af9z.2), and the
-// canonical schema is the Go contract module (platform/contract: agentpb +
-// clusterspec). Both this spec and those types are ADDITIVE-ONLY: fields may be
-// added, but a field number, name, JSON tag, or type is NEVER changed or removed
-// without the deprecation process. The golden round-trip gate in
-// platform/contract/agentwire enforces this in CI. Policy + support window
-// (agent N / N-1 / N-2): docs/repo-split/version-compatibility.md.
+// compiled wire format — the wire is hand-written JSON, and the canonical
+// schema is this Go contract module (agentpb + clusterspec). Both this spec
+// and those types are ADDITIVE-ONLY: fields may be added, but a field number,
+// name, JSON tag, or type is NEVER changed or removed without the deprecation
+// process. The golden round-trip gate in agentwire enforces this in CI.
+// Policy + support window (agent N / N-1 / N-2): docs/version-compatibility.md.
 
 package agent.v1;
 

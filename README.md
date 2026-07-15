@@ -26,7 +26,7 @@ controlplane ─X→ dataplane (wire only, no code dependency)
 
 ## Wire format
 
-The wire is **hand-written JSON** (decision af9z.2 — no protobuf/buf codegen).
+The wire is **hand-written JSON** — no protobuf/buf codegen.
 The agent dials outbound and opens one long-lived bidirectional stream; the
 control plane pushes `ClusterCommand` frames, the agent replies with
 `ClusterStatus`. See [`proto/agent.proto`](./proto/agent.proto) for the frame

@@ -22,9 +22,8 @@ first — don't send the PR.
 
 ## Keep the boundary honest
 
-The contract is the enforcement point for the
-[trust boundary](https://github.com/allodium-co/dataplane/blob/main/docs/TRUST-BOUNDARY.md).
-A field must never create a channel for query data, query results,
+The contract is the enforcement point for the trust boundary between the data
+plane and the control plane. A field must never create a channel for query data, query results,
 table/catalog metadata, catalog grants, or storage credentials to travel from
 the data plane up to the control plane. Desired state is **compute shape only**.
 Reviewers will reject any field that widens what may cross the boundary.

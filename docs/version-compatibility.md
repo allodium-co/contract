@@ -1,45 +1,41 @@
-# Agent ↔ Control-Plane Version Compatibility Policy (af9z.11)
+# Agent ↔ Control-Plane Version Compatibility Policy
 
-Once the monorepo splits into `controlplane` / `dataplane` / `proto` (af9z.19),
-the two planes ship on **independent cadences**. A customer runs the data-plane
-agent inside their own environment and upgrades it on their own schedule, while
-the control plane is a hosted service that upgrades continuously. The gRPC
-stream between them therefore carries **version skew**: a current control plane
-must keep talking to an older agent, and (briefly, during a staged rollout) an
-older control plane must tolerate a newer agent.
-
-In the monorepo this skew is invisible — both planes build and deploy from the
-same commit — so it must be made explicit *before* the split, or it becomes a
-production incident after it. This document is that policy.
+`controlplane` and `dataplane` ship on **independent cadences**. A customer
+runs the data-plane agent inside their own environment and upgrades it on
+their own schedule, while the control plane is a hosted service that upgrades
+continuously. The gRPC stream between them therefore carries **version
+skew**: a current control plane must keep talking to an older agent, and
+(briefly, during a staged rollout) an older control plane must tolerate a
+newer agent. This document is that policy.
 
 ## TL;DR
 
-- **Wire is JSON, hand-written** (decision af9z.2) — no protobuf/buf. The schema
-  lives in the shared Go contract module `platform/contract` (→ `proto` repo).
+- **Wire is JSON, hand-written** — no protobuf/buf. The schema lives in this
+  shared Go contract module.
 - **The schema is additive-only.** Add fields; never remove, rename, renumber, or
   retype one. A breaking change requires the deprecation process below.
 - **Support window: agent N, N-1, N-2.** The control plane supports the current
   agent minor release and the two behind it. The machine-readable floor is
-  [`agentwire.MinSupportedAgentVersion`](../../platform/contract/agentwire/version.go).
+  [`agentwire.MinSupportedAgentVersion`](../agentwire/version.go).
 - **CI enforces backward-compat** with a golden round-trip test
-  ([`agentwire/golden_test.go`](../../platform/contract/agentwire/golden_test.go)),
-  wired as [`.github/workflows/contract-compat.yml`](../../.github/workflows/contract-compat.yml)
-  and `make contract-compat`. It fails the build on any breaking wire change.
+  ([`agentwire/golden_test.go`](../agentwire/golden_test.go)),
+  wired as [`.github/workflows/contract-compat.yml`](../.github/workflows/contract-compat.yml).
+  It fails the build on any breaking wire change.
 
 ## What the agent reports
 
 The agent already advertises its release version two ways, so the control plane
 never has to guess:
 
-1. **gRPC metadata `agent-version`** at stream connect
-   ([`connector.go`](../../platform/agent/internal/connector/connector.go)) — read
-   at handshake and persisted to the `agent_connections` row.
+1. **gRPC metadata `agent-version`** at stream connect (set by the data-plane
+   agent's connector) — read at handshake and persisted to the
+   `agent_connections` row.
 2. **`ClusterStatus.AgentVersion`** in the observed-status frames
-   ([`clusterspec/status.go`](../../platform/contract/clusterspec/status.go)).
+   ([`clusterspec/status.go`](../clusterspec/status.go)).
 
 The value is the data-plane **release semver** — the agent image tag / chart
-`appVersion`, stamped by `scripts/publish-charts.sh` from the `v*.*.*` release
-tag (`AGENT_VERSION` env in the agent Deployment). Dev builds report a
+`appVersion`, stamped by the data plane's release pipeline from the `v*.*.*`
+release tag (`AGENT_VERSION` env in the agent Deployment). Dev builds report a
 non-semver tag such as `latest`; the control plane classifies those as
 `SupportUnknown` and admits them without a skew claim.
 
@@ -62,8 +58,7 @@ so control plane and agent cannot disagree:
 - `SupportWindowMinors` — the descriptive width of the window (`2` = N-2).
 
 Classification is a pure function, `agentwire.ClassifyAgentVersion(reported)`,
-called at the agentserver handshake
-([`agentserver/server.go`](../../platform/ui/internal/agentserver/server.go)).
+called at the control plane's agentserver handshake (private repo).
 
 ### Why `SupportTooOld` warns instead of rejecting (MVP)
 
@@ -86,7 +81,7 @@ covered by `TestMinSupportedIsParseable`.
 
 ## Additive-only schema discipline
 
-The JSON message schema is the two type groups in `platform/contract`:
+The JSON message schema is the two type groups in this module:
 
 - **`agentpb`** — the stream envelope and frames: `AgentMessage`, `ClusterStatus`
   (heartbeat), `UsageReport`, `WorkloadUsage`, `ResourceUsage`.
@@ -94,7 +89,7 @@ The JSON message schema is the two type groups in `platform/contract`:
   `WarehouseSpec`, `SparkClusterSpec`, `ClusterStatus`, `WarehouseStatus`,
   `SparkClusterStatus`.
 
-The spec doc [`platform/proto/agent.proto`](../../platform/proto/agent.proto) is a
+The spec doc [`proto/agent.proto`](../proto/agent.proto) is a
 human-readable mirror of the same contract and follows the same rules.
 
 **Allowed (additive, no version negotiation needed):**
@@ -113,13 +108,13 @@ human-readable mirror of the same contract and follows the same rules.
 - Making a previously optional field required.
 
 Every additive change **increments `agentwire.SchemaVersion` by one**. That
-integer is published alongside the neutral JSON Schema (af9z.2) so a
+integer is published alongside the neutral JSON Schema so a
 bring-your-own agent can tell which generation it targets.
 
 ## The CI backward-compatibility gate
 
-Per af9z.2 there is no `buf breaking`; the equivalent gate is a **golden
-round-trip test**. `platform/contract/agentwire/testdata/agentmessage_*.json`
+There is no `buf breaking`; the equivalent gate is a **golden
+round-trip test**. `agentwire/testdata/agentmessage_*.json`
 are **frozen** samples of what an *older* peer emits, one per `AgentMessage`
 payload variant, with every field of that generation populated. For each golden
 the test:
@@ -145,10 +140,9 @@ That direction is exactly additive-only discipline:
   pass). Optionally add a *new* golden that freezes the new field as a future
   baseline.
 
-Run it locally with `make contract-compat` (gate only) or `make contract-test`
-(the full contract module, also part of `make unit-test`). In CI it is
-[`contract-compat.yml`](../../.github/workflows/contract-compat.yml), triggered on
-any change under `platform/contract/**` or `platform/proto/**`.
+Run it locally with `go test ./...` from the repo root. In CI it is
+[`contract-compat.yml`](../.github/workflows/contract-compat.yml), which runs on
+every push and PR.
 
 ## Deprecation process (the only way to make a breaking change)
 
@@ -172,10 +166,7 @@ edit:
 A breaking change that skips steps 1–3 is the failure mode this policy exists to
 prevent; the CI gate is what makes skipping it impossible by accident.
 
-## Post-split ownership
+## Ownership
 
-The contract module and this gate move to the **`proto`** repo (af9z.18 CI
-inventory, af9z.19 manifest). `make/proto.mk` and
-`.github/workflows/contract-compat.yml` are written to travel with it: the
-workflow uses `platform/contract/go.mod` for its Go version and runs entirely
-within the module, with no control-plane or data-plane coupling.
+This document, the contract module, and the compatibility gate live in the
+standalone `contract` repo, with no control-plane or data-plane coupling.
