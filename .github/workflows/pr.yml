@@ -1,25 +1,8 @@
 name: PR checks
-
-# Single entry point for everything that runs on a pull request. This is the
-# ONLY workflow in the repo that owns the `pull_request` trigger, so "what runs
-# on a PR" is answerable by reading this one file. Each job delegates to a
-# reusable workflow (on: workflow_call) that holds the actual check logic:
-#   - compat     -> compat-check.yml (wire backward-compat gate / go test)
-#   - title-lint -> title-lint.yml   (Conventional-Commit PR title check)
-
 on:
   pull_request:
-    # `edited` is required so that editing just the PR title (no new commit)
-    # re-triggers title-lint; the rest match GitHub's implicit default.
     types: [opened, edited, synchronize, reopened]
 
-# Reusable-workflow permission model: a called workflow (uses:) does NOT run with
-# whatever it declares in its own `permissions:` block — that block is only a
-# ceiling. The token actually handed to the callee is the permission set the
-# CALLING job grants here. So a restrictive org/repo default (e.g. pull-requests:
-# none) can't be lifted by editing title-lint.yml/compat-check.yml; the caller
-# must explicitly grant each callee what it needs, which is what the per-job
-# `permissions:` blocks below do.
 jobs:
   compat:
     # Skip the go test / wire-compat gate on a title-only `edited` event: no
