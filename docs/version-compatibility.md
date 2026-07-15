@@ -166,6 +166,68 @@ edit:
 A breaking change that skips steps 1–3 is the failure mode this policy exists to
 prevent; the CI gate is what makes skipping it impossible by accident.
 
+## Release versioning policy (git-tag semver)
+
+The contract module's **release semver** (the `vX.Y.Z` git tag that
+controlplane and dataplane pin as a Go-module dependency) is cut by
+**release-please** driven by **Conventional Commits**. This replaces the old
+fully-manual `git tag && git push --tags`.
+
+### What triggers a release
+
+- [`release-please.yml`](../.github/workflows/release-please.yml) runs on every
+  push to `main` (`release-type: go`). It maintains a standing **release PR**
+  that accumulates a `CHANGELOG.md` from the commits since the last release.
+- The version bump is derived from the Conventional Commit types on `main`:
+  - `feat:` → **minor** bump.
+  - `fix:` → **patch** bump.
+  - `feat!:` / `fix!:` / a `BREAKING CHANGE:` footer → **major** bump.
+  - `docs:` / `chore:` (and `ci:`, `test:`, `style:`, `build:`, `refactor:`
+    with no user-facing effect) → **no bump, no release PR**. A docs-only or
+    chore-only merge deliberately does **not** cut a release.
+- **Merging the release PR** is what actually creates the `vX.Y.Z` git tag and
+  the GitHub release. Nothing is tagged until a human merges that PR.
+
+### The commit-message / PR-title convention
+
+This repo enables all three merge strategies (squash / merge / rebase) with no
+fixed default, so we lint the **PR title** rather than every individual commit:
+[`pr-title-lint.yml`](../.github/workflows/pr-title-lint.yml) validates that the
+PR title follows Conventional Commits
+(`type(optional-scope)!: subject`; types `feat` `fix` `docs` `chore` `ci`
+`refactor` `test` `build` `perf` `style` `revert`).
+
+**Contributors should squash-merge with a conventional-commit-style PR title**,
+because on a squash-merge the PR title becomes the commit message that lands on
+`main` — which is exactly what release-please parses. Examples:
+
+```
+feat(clusterspec): add worker autoscaling field
+fix: correct AgentMessage envelope tag
+docs: clarify support-window policy      # no release
+```
+
+(release-please's own repository uses this same squash-merge + conventional
+PR-title pattern.)
+
+### Bootstrap note
+
+release-please tracks the last released version in
+[`.release-please-manifest.json`](../.release-please-manifest.json), bootstrapped
+to `0.1.0` to match the existing `v0.1.0` git tag (there is no corresponding
+GitHub Release object yet, so the manifest is the source of truth that stops
+release-please from starting over at `0.0.0`). Release type and changelog path
+live in [`release-please-config.json`](../release-please-config.json).
+
+### SchemaVersion is out of scope for this automation
+
+[`agentwire.SchemaVersion`](../agentwire/version.go) is a **different axis** — the
+additive-schema *generation* counter, not the release semver. It stays a
+**manually reviewed const bump** (guarded by the golden round-trip gate and
+`TestMinSupportedIsParseable`). release-please does **not** read or write it.
+Likewise `MinSupportedAgentVersion` remains a manual, reviewed const bump. Only
+the git tag is automated here.
+
 ## Ownership
 
 This document, the contract module, and the compatibility gate live in the

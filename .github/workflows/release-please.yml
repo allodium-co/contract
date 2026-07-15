@@ -1,0 +1,40 @@
+name: Release please
+
+# Automates release tagging for this contract module using Conventional Commits.
+#
+# release-please watches `main` and maintains a standing "release PR" that
+# accumulates a CHANGELOG from commits since the last release. It only proposes
+# a version bump when there is at least one `feat:` (minor) or
+# `fix:` / `BREAKING CHANGE` (patch/major) commit since the last release —
+# `docs:` / `chore:`-only merges do NOT open a release PR or cut a release.
+#
+# Merging the release PR is what cuts the git tag (vX.Y.Z) and the GitHub
+# release; this replaces the old fully-manual `git tag && git push --tags`.
+#
+# Config is manifest-based: release-please-config.json (release type) and
+# .release-please-manifest.json (last released version, bootstrapped at 0.1.0).
+#
+# NOTE: agentwire.SchemaVersion (agentwire/version.go) is a DIFFERENT axis
+# (additive-schema generation counter) and is intentionally NOT touched by this
+# automation — it stays a manually reviewed const bump. See
+# docs/version-compatibility.md.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Manifest-based config: reads release-please-config.json and
+          # .release-please-manifest.json from the repo root (the defaults).
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
