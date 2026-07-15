@@ -1,26 +1,15 @@
 name: Wire contract compatibility
 
-# Backward-compatibility gate for the control-plane<->agent JSON wire contract
-# (af9z.11). Runs the shared contract module's tests — including the golden
-# round-trip check that fails on a breaking (non-additive) wire change — on every
-# push and PR that touches the contract or its proto spec. Per af9z.2 the wire is
+# Backward-compatibility gate for the control-plane<->agent JSON wire contract.
+# Runs this module's tests — including the golden round-trip check that fails
+# on a breaking (non-additive) wire change — on every push and PR. The wire is
 # hand-written JSON (no protobuf/buf), so this golden gate stands in for
-# `buf breaking`. Policy: docs/repo-split/version-compatibility.md.
-#
-# This workflow belongs to the proto repo after the split (af9z.19 / af9z.18
-# CI inventory) — the contract module moves there and carries this gate with it.
+# `buf breaking`. Policy: docs/version-compatibility.md.
+
 on:
   push:
     branches: ["**"]
-    paths:
-      - "platform/contract/**"
-      - "platform/proto/**"
-      - ".github/workflows/contract-compat.yml"
   pull_request:
-    paths:
-      - "platform/contract/**"
-      - "platform/proto/**"
-      - ".github/workflows/contract-compat.yml"
 
 permissions:
   contents: read
@@ -33,9 +22,8 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version-file: platform/contract/go.mod
-          cache-dependency-path: platform/contract/go.sum
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
 
       - name: Wire contract tests + backward-compat gate
-        working-directory: platform/contract
         run: go test ./... -count=1 -timeout 120s

@@ -32,15 +32,15 @@ type ClusterStatus struct {
 }
 
 // UsageReport is a periodic resource-usage sample the agent's Usage Reporter
-// sends to the control plane on the existing stream (billing epic cff.1).
-// It is metadata only — counts, quantities, and timestamps — never query data,
-// so it stays on the MAY-side of the boundary invariant. Frames are size-limited
-// per T6; a workload with many resource lines is split across reports.
+// sends to the control plane on the existing stream. It is metadata only —
+// counts, quantities, and timestamps — never query data, so it stays on the
+// MAY-side of the boundary invariant. Frames are size-limited; a workload with
+// many resource lines is split across reports.
 //
 // SampleID is stable for a given sample so control-plane ingestion is idempotent
-// across buffered replay after a connection gap (billing-model.md §4). ObservedAt
-// is the agent's local clock at sample time and IntervalSecs is the window this
-// sample attributes (snapshot × interval, §3).
+// across buffered replay after a connection gap. ObservedAt is the agent's
+// local clock at sample time and IntervalSecs is the window this sample
+// attributes (snapshot × interval).
 type UsageReport struct {
 	SampleID     string          `json:"sample_id"`
 	AgentID      string          `json:"agent_id"`
@@ -66,7 +66,7 @@ type WorkloadUsage struct {
 // and the number of replicas actually observed Running/Ready. Reserved-capacity
 // model — Quantity is the k8s resource *request*, ReplicaCount is real observed
 // pods (never desired/declared or KEDA min/max). ResourceType is an open set so
-// GPU/VRAM for AI workloads needs no wire change (billing-model.md §2).
+// GPU/VRAM for AI workloads needs no wire change.
 type ResourceUsage struct {
 	ResourceType string  `json:"resource_type"` // CPU | MEMORY | GPU
 	SKU          string  `json:"sku,omitempty"` // GPU model; empty for CPU/MEMORY

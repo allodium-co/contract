@@ -2,7 +2,7 @@
 // defines the message types and gRPC service stubs for the bidirectional agent
 // stream, and registers a JSON codec under the name "proto" so grpc-go uses
 // encoding/json instead of the protobuf wire format — no protoc or generated
-// code is involved (the wire is JSON by decision af9z.2). Both the agent
+// code is involved (the wire is hand-written JSON). Both the agent
 // (client) and the control plane (server) import this single package; keep the
 // JSON tags on the message types stable and evolve them additively only.
 package agentpb

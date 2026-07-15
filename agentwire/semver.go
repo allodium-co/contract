@@ -8,7 +8,7 @@ import (
 // parseSemver parses a MAJOR.MINOR.PATCH string into its three numeric
 // components. It accepts an optional leading "v" and ignores any pre-release or
 // build-metadata suffix ("-rc1", "+build.7"), matching the release tags the
-// publish pipeline stamps (scripts/publish-charts.sh: "v*.*.*"). It returns ok
+// release pipeline stamps ("v*.*.*"). It returns ok
 // == false for anything that is not three dotted integers, so callers treat dev
 // tags ("latest"), empty values, and git SHAs as SupportUnknown rather than a
 // hard parse error.
