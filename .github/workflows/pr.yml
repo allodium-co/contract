@@ -13,15 +13,26 @@ on:
     # re-triggers title-lint; the rest match GitHub's implicit default.
     types: [opened, edited, synchronize, reopened]
 
+# Reusable-workflow permission model: a called workflow (uses:) does NOT run with
+# whatever it declares in its own `permissions:` block — that block is only a
+# ceiling. The token actually handed to the callee is the permission set the
+# CALLING job grants here. So a restrictive org/repo default (e.g. pull-requests:
+# none) can't be lifted by editing title-lint.yml/compat-check.yml; the caller
+# must explicitly grant each callee what it needs, which is what the per-job
+# `permissions:` blocks below do.
 jobs:
   compat:
     # Skip the go test / wire-compat gate on a title-only `edited` event: no
     # code changed, so re-running it would just burn Action minutes.
     if: github.event.action != 'edited'
+    permissions:
+      contents: read
     uses: ./.github/workflows/compat-check.yml
 
   title-lint:
     # Skip title-lint on a plain commit push (`synchronize`): the PR title
     # didn't change, so there's nothing new to lint.
     if: github.event.action != 'synchronize'
+    permissions:
+      pull-requests: read
     uses: ./.github/workflows/title-lint.yml
