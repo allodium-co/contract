@@ -1,0 +1,57 @@
+name: PR title lint
+
+# Enforces the Conventional Commits convention on the PULL REQUEST TITLE.
+#
+# Why the PR title and not each commit: this repo enables all three merge
+# strategies (squash / merge / rebase) with no fixed default. On a squash-merge
+# the PR title becomes the commit message that lands on `main`, which is what
+# release-please parses to classify the change. The PR title is more reliably
+# curated than raw commit messages, so linting it is the more robust gate.
+#
+# Contributors should squash-merge with a conventional-commit-style title, e.g.
+#   feat(clusterspec): add worker autoscaling field
+#   fix: correct AgentMessage envelope tag
+#   docs: clarify support-window policy
+# See docs/version-compatibility.md for the full release policy.
+#
+# Reusable workflow: the PR trigger lives one level up in pr.yml, which calls
+# this via `uses: ./.github/workflows/title-lint.yml`. A workflow_call invoked
+# from a pull_request-triggered caller still sees github.event.pull_request,
+# and GITHUB_TOKEN is auto-provisioned per job (no secrets: inherit needed).
+
+on:
+  workflow_call:
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Conventional Commit types release-please understands.
+          types: |
+            feat
+            fix
+            docs
+            chore
+            ci
+            refactor
+            test
+            build
+            perf
+            style
+            revert
+          # A scope is optional; when present it must be lower-case-ish.
+          requireScope: false
+          # Allow the "!" breaking-change marker (e.g. `feat!:`).
+          # Subject must not start with an upper-case letter.
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please start the subject with a
+            lower-case letter.

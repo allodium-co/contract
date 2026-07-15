@@ -2,14 +2,15 @@ name: Wire contract compatibility
 
 # Backward-compatibility gate for the control-plane<->agent JSON wire contract.
 # Runs this module's tests — including the golden round-trip check that fails
-# on a breaking (non-additive) wire change — on every push and PR. The wire is
-# hand-written JSON (no protobuf/buf), so this golden gate stands in for
-# `buf breaking`. Policy: docs/version-compatibility.md.
+# on a breaking (non-additive) wire change. The wire is hand-written JSON (no
+# protobuf/buf), so this golden gate stands in for `buf breaking`. Policy:
+# docs/version-compatibility.md.
+#
+# Reusable workflow: the PR trigger lives one level up in pr.yml, which calls
+# this via `uses: ./.github/workflows/compat-check.yml`.
 
 on:
-  push:
-    branches: ["**"]
-  pull_request:
+  workflow_call:
 
 permissions:
   contents: read
