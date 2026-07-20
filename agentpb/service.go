@@ -23,11 +23,11 @@ type AgentService_StreamCommandsServer interface {
 type agentServiceStreamCommandsServer struct{ grpc.ServerStream }
 
 func (x *agentServiceStreamCommandsServer) Send(m *AgentMessage) error {
-	return x.ServerStream.SendMsg(m)
+	return x.SendMsg(m)
 }
 func (x *agentServiceStreamCommandsServer) Recv() (*AgentMessage, error) {
 	m := new(AgentMessage)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+	if err := x.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -78,11 +78,11 @@ func NewAgentServiceClient(cc grpc.ClientConnInterface) AgentServiceClient {
 type agentServiceStreamCommandsClient struct{ grpc.ClientStream }
 
 func (x *agentServiceStreamCommandsClient) Send(m *AgentMessage) error {
-	return x.ClientStream.SendMsg(m)
+	return x.SendMsg(m)
 }
 func (x *agentServiceStreamCommandsClient) Recv() (*AgentMessage, error) {
 	m := new(AgentMessage)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
+	if err := x.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
