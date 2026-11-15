@@ -9,13 +9,22 @@ linters:
     - noctx
     - revive
     - gocritic
+    - godox
   settings:
     revive:
       rules:
         - name: unused-parameter
     gocritic:
+      enabled-checks:
+        - commentedOutCode
       disabled-checks:
         - ifElseChain
+    godox:
+      keywords:
+        - TODO
+        - FIXME
+        - HACK
+        - XXX
   exclusions:
     generated: lax
     presets:
