@@ -1,0 +1,53 @@
+{
+  "desired": {
+    "warehouses": [
+      {
+        "id": "wh-1",
+        "tenant_id": "acme",
+        "name": "analytics",
+        "profile": "medium",
+        "heap_size_gb": 8,
+        "max_query_memory_per_node": "4GB",
+        "max_total_memory_per_node": "6GB",
+        "heap_headroom": "2GB",
+        "worker_mode": "keda",
+        "worker_profile": "medium",
+        "worker_heap_size_gb": 8,
+        "worker_min_replicas": 1,
+        "worker_max_replicas": 5,
+        "idle_timeout_mins": 30
+      }
+    ],
+    "sparkClusters": [
+      {
+        "id": "spark-1",
+        "tenant_id": "acme",
+        "name": "etl",
+        "executorInstances": 3,
+        "executorMemory": "4g",
+        "executorCores": 2,
+        "driverVCPUs": 2,
+        "driverMemoryGB": 4,
+        "packages": [
+          "org.apache.iceberg:iceberg-spark-runtime:1.5.0"
+        ]
+      }
+    ],
+    "toolSessions": [
+      {
+        "id": "k5cq3ucoi4mxvwcbbq7rsgfz3e",
+        "ownerSub": "f3b1c2d4-5e6f-4a1b-8c9d-0e1f2a3b4c5d",
+        "tool": "marimo",
+        "size": "small",
+        "desiredPhase": "running"
+      },
+      {
+        "id": "q2w7nb4xk3ldyh6ru5vapzeoti",
+        "ownerSub": "f3b1c2d4-5e6f-4a1b-8c9d-0e1f2a3b4c5d",
+        "tool": "marimo",
+        "size": "medium",
+        "desiredPhase": "stopped"
+      }
+    ]
+  }
+}

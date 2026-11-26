@@ -86,8 +86,8 @@ The JSON message schema is the two type groups in this module:
 - **`agentpb`** — the stream envelope and frames: `AgentMessage`, `ClusterStatus`
   (heartbeat), `UsageReport`, `WorkloadUsage`, `ResourceUsage`.
 - **`clusterspec`** — desired state and observed status: `ClusterSpec`,
-  `WarehouseSpec`, `SparkClusterSpec`, `ClusterStatus`, `WarehouseStatus`,
-  `SparkClusterStatus`.
+  `WarehouseSpec`, `SparkClusterSpec`, `ToolSessionSpec`, `ClusterStatus`,
+  `WarehouseStatus`, `SparkClusterStatus`, `ToolSessionStatus`.
 
 The spec doc [`proto/agent.proto`](../proto/agent.proto) is a
 human-readable mirror of the same contract and follows the same rules.

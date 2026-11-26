@@ -5,8 +5,9 @@
 // source of truth — both planes reference it, so the schema cannot drift.
 //
 // Boundary invariant: only compute shape is permitted here (sizes, replica
-// bounds, package coordinates). No table/schema/column references, query text,
-// or results ever appear in these types.
+// bounds, package coordinates), plus the IdP subject that owns a tool session.
+// No table/schema/column references, query text, results or credentials ever
+// appear in these types.
 //
 // The agent Validate()s every spec before building Kubernetes objects — its
 // defense against a malformed or compromised control plane (architecture
@@ -18,13 +19,14 @@ import "fmt"
 var validWorkerModes = map[string]bool{"": true, "none": true, "static": true, "keda": true}
 
 // ClusterSpec is the compute desired state: the named Trino warehouses and Spark
-// clusters a tenant has deployed. There is no always-on default compute — every
+// clusters a tenant has deployed, and its users' tool sessions. There is no always-on default compute — every
 // cluster is tenant-declared from a t-shirt size or a custom shape. Only compute
 // shape is permitted here — no table, schema, or query-result fields (boundary
 // invariant, T1).
 type ClusterSpec struct {
 	Warehouses    []WarehouseSpec    `json:"warehouses,omitempty"`
 	SparkClusters []SparkClusterSpec `json:"sparkClusters,omitempty"`
+	ToolSessions  []ToolSessionSpec  `json:"toolSessions,omitempty"`
 }
 
 // WarehouseSpec is the constrained compute schema the control plane may send to

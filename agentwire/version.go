@@ -28,7 +28,7 @@ package agentwire
 // field). It is published alongside the neutral JSON Schema so a BYO
 // agent can tell which generation it targets. A breaking change is not a bump —
 // it is forbidden (see package doc).
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // MinSupportedAgentVersion is the floor of the tolerated agent-release window:
 // the control plane accepts this release and everything newer, and warns on
