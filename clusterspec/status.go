@@ -44,6 +44,7 @@ func ParsePhase(s string) Phase {
 type ClusterStatus struct {
 	Warehouses        []WarehouseStatus    `json:"warehouses,omitempty"`
 	SparkClusters     []SparkClusterStatus `json:"sparkClusters,omitempty"`
+	ToolSessions      []ToolSessionStatus  `json:"toolSessions,omitempty"`
 	LastReconcileTime string               `json:"lastReconcileTime,omitempty"`
 	AgentVersion      string               `json:"agentVersion,omitempty"`
 }
@@ -58,6 +59,15 @@ type WarehouseStatus struct {
 type SparkClusterStatus struct {
 	ID      string `json:"id"`
 	Name    string `json:"name,omitempty"`
+	Phase   Phase  `json:"phase,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// ToolSessionStatus is the observed phase of one tool session. Message
+// explains the phase, such as an unknown tool key; it never carries notebook
+// content or anything the tool computed.
+type ToolSessionStatus struct {
+	ID      string `json:"id"`
 	Phase   Phase  `json:"phase,omitempty"`
 	Message string `json:"message,omitempty"`
 }

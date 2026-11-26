@@ -1,0 +1,16 @@
+{
+  "observed": {
+    "warehouses": [
+      {"id": "wh-1", "name": "analytics", "phase": "running", "message": "ready"}
+    ],
+    "sparkClusters": [
+      {"id": "spark-1", "name": "etl", "phase": "starting", "message": "scheduling"}
+    ],
+    "toolSessions": [
+      {"id": "k5cq3ucoi4mxvwcbbq7rsgfz3e", "phase": "running", "message": "ready"},
+      {"id": "q2w7nb4xk3ldyh6ru5vapzeoti", "phase": "error", "message": "unknown size \"huge\" for tool \"marimo\""}
+    ],
+    "lastReconcileTime": "2026-11-26T10:00:00Z",
+    "agentVersion": "0.4.0"
+  }
+}
