@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/allodium-co/contract/compare/v0.2.0...v0.3.0) (2026-11-27)
+
+
+### Features
+
+* **agentpbtest:** fakes of both ends of the agent stream ([4ba5b6f](https://github.com/allodium-co/contract/commit/4ba5b6fdc965d9fb2c2b42411858ed1a54f3c9b7))
+* **agentpbtest:** fakes of both ends of the agent stream ([e889b2c](https://github.com/allodium-co/contract/commit/e889b2ca5964db7983798dda5cb847cc84c22e8c))
+
+
+### Bug Fixes
+
+* **agentpbtest:** wait for later frames and report how a stream ended ([2f8f28b](https://github.com/allodium-co/contract/commit/2f8f28b3372263fa6bbacd83372cd3e558e30d35))
+
 ## [0.2.0](https://github.com/allodium-co/contract/compare/v0.1.1...v0.2.0) (2026-11-26)
 
 
