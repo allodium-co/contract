@@ -3,9 +3,11 @@ package agentpbtest_test
 import (
 	"context"
 	"errors"
+	"io"
 	"math"
 	"net"
 	"reflect"
+	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -149,6 +151,58 @@ func TestFakeAgentSeesRejection(t *testing.T) {
 	default:
 		t.Error("Done() not closed after the stream ended")
 	}
+
+	err = agent.SendStatus(agentpbtest.StatusFrame().Status)
+	if !errors.Is(err, agentpbtest.ErrStreamEnded) || status.Code(err) != codes.PermissionDenied {
+		t.Errorf("SendStatus after rejection = %v, want ErrStreamEnded with PermissionDenied", err)
+	}
+}
+
+func TestFakeAgentConcurrentSendsAndHalfClose(t *testing.T) {
+	ctx := testCtx(t)
+	ss, dial := startScriptedServer(t)
+	agent := agentpbtest.NewFakeAgent(t, "passthrough:///bufnet", dial)
+
+	const senders, each = 4, 25
+	var wg sync.WaitGroup
+	for range senders {
+		wg.Go(func() {
+			for range each {
+				if err := agent.SendStatus(agentpbtest.StatusFrame().Status); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+	if err := agent.CloseSend(); err != nil {
+		t.Fatal(err)
+	}
+
+	stream := ss.accept(t, ctx)
+	n := 0
+	for {
+		_, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("recv: %v", err)
+		}
+		n++
+	}
+	if n != senders*each {
+		t.Errorf("server received %d frames, want %d", n, senders*each)
+	}
+
+	// Half-closed, the agent still receives.
+	if err := stream.Send(agentpbtest.DesiredFrame()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agent.WaitForDesired(ctx); err != nil {
+		t.Errorf("WaitForDesired after CloseSend: %v", err)
+	}
 }
 
 func TestFakeAgentRejectsUnencodableFrame(t *testing.T) {
@@ -158,6 +212,10 @@ func TestFakeAgentRejectsUnencodableFrame(t *testing.T) {
 	bad := agentpbtest.UsageFrame().Usage
 	bad.Workloads[0].Resources[0].Quantity = math.Inf(1)
 	if err := agent.SendUsage(bad); err == nil {
-		t.Error("SendUsage of an infinite quantity succeeded, want an encoding error")
+		t.Fatal("SendUsage of an infinite quantity succeeded, want an encoding error")
+	}
+	<-agent.Done()
+	if code := status.Code(agent.Err()); code != codes.Internal {
+		t.Errorf("Err() = %v, want Internal", agent.Err())
 	}
 }

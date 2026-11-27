@@ -71,10 +71,24 @@ func (r *recorder) endErr() error {
 }
 
 // waitFor returns the first recorded frame that match accepts, including
-// frames recorded before the call. match runs without the lock held, so it
-// may call back into the fake.
+// frames recorded before the call. It does not consume frames: two calls with
+// the same match return the same frame.
 func (r *recorder) waitFor(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
-	next := 0
+	return r.waitFrom(ctx, 0, match)
+}
+
+// waitForNext is waitFor over only the frames recorded after the call, for
+// waiting on the effect of something the test just did.
+func (r *recorder) waitForNext(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
+	r.mu.Lock()
+	next := len(r.frames)
+	r.mu.Unlock()
+	return r.waitFrom(ctx, next, match)
+}
+
+// waitFrom runs match without the lock held, so match may call back into the
+// fake.
+func (r *recorder) waitFrom(ctx context.Context, next int, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
 	for {
 		r.mu.Lock()
 		frames := r.frames[next:len(r.frames):len(r.frames)]

@@ -2,7 +2,9 @@ package agentpbtest
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 
@@ -100,11 +102,20 @@ func (a *FakeAgent) recvLoop() {
 }
 
 // Send sends msg up the stream, encoded by the agentpb codec. It returns an
-// error if the frame cannot be encoded or the stream has ended.
+// error if the frame cannot be encoded, which ends the stream as it would on
+// the real wire. Once the control plane has ended the stream it returns
+// ErrStreamEnded wrapping the status the control plane ended it with.
 func (a *FakeAgent) Send(msg *agentpb.AgentMessage) error {
 	a.sendMu.Lock()
 	defer a.sendMu.Unlock()
-	if err := a.stream.Send(msg); err != nil {
+	err := a.stream.Send(msg)
+	if errors.Is(err, io.EOF) {
+		// grpc-go reports only io.EOF from a send on an ended stream; the
+		// status the control plane ended it with comes from the receive side.
+		<-a.done
+		return endedError("before the frame was sent", a.frames.endErr())
+	}
+	if err != nil {
 		return fmt.Errorf("agentpbtest: send: %w", err)
 	}
 	return nil
@@ -130,10 +141,16 @@ func (a *FakeAgent) SendUsage(u *agentpb.UsageReport) error {
 func (a *FakeAgent) Received() []*agentpb.AgentMessage { return a.frames.snapshot() }
 
 // WaitFor returns the first received frame that match accepts, including
-// frames received before the call. It fails fast with ErrStreamEnded if the
-// control plane ends the stream first.
+// frames received before the call; it does not consume frames. It fails fast
+// with ErrStreamEnded if the control plane ends the stream first.
 func (a *FakeAgent) WaitFor(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
 	return a.frames.waitFor(ctx, match)
+}
+
+// WaitForNext is WaitFor over only the frames received after the call, such
+// as the desired state the control plane pushes after the test changed it.
+func (a *FakeAgent) WaitForNext(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
+	return a.frames.waitForNext(ctx, match)
 }
 
 // WaitForDesired returns the desired state from the first desired-state frame

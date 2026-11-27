@@ -42,7 +42,9 @@ func NewFakeControlPlane(t testing.TB, opts ...grpc.ServerOption) *FakeControlPl
 		t.Fatalf("agentpbtest: listen: %v", err)
 	}
 	f := &FakeControlPlane{
-		srv:     grpc.NewServer(opts...),
+		// Close waits for the stream handlers, so no fake goroutine outlives
+		// the test.
+		srv:     grpc.NewServer(append([]grpc.ServerOption{grpc.WaitForHandlers(true)}, opts...)...),
 		lis:     lis,
 		frames:  newRecorder(),
 		arrived: make(chan struct{}),
@@ -91,10 +93,18 @@ func (f *FakeControlPlane) Accept(ctx context.Context) (*AgentStream, error) {
 func (f *FakeControlPlane) Received() []*agentpb.AgentMessage { return f.frames.snapshot() }
 
 // WaitFor returns the first frame on any stream that match accepts, including
-// frames received before the call. HasStatus, HasObserved and HasUsage are
-// ready-made matchers.
+// frames received before the call. It does not consume frames, so after a
+// reconnect it can return a frame from an earlier stream; use WaitForNext to
+// wait for a frame the agent sends from now on. HasStatus, HasObserved and
+// HasUsage are ready-made matchers.
 func (f *FakeControlPlane) WaitFor(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
 	return f.frames.waitFor(ctx, match)
+}
+
+// WaitForNext returns the first frame on any stream that match accepts among
+// those received after the call.
+func (f *FakeControlPlane) WaitForNext(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
+	return f.frames.waitForNext(ctx, match)
 }
 
 func (f *FakeControlPlane) register(s *AgentStream) {
@@ -128,8 +138,10 @@ func (svc *fakeAgentService) StreamCommands(stream agentpb.AgentService_StreamCo
 				recvErr <- err
 				return
 			}
-			s.frames.add(m)
+			// The shared record first, so a frame seen on the stream is
+			// already in FakeControlPlane.Received.
 			f.frames.add(m)
+			s.frames.add(m)
 		}
 	}()
 
@@ -159,7 +171,13 @@ func (s *AgentStream) serve(stream agentpb.AgentService_StreamCommandsServer, re
 	for {
 		select {
 		case req := <-s.sends:
-			req.result <- stream.Send(req.msg)
+			// grpc-go ends the RPC on any send error, including a frame the
+			// codec cannot encode, so the stream is over either way.
+			if err := stream.Send(req.msg); err != nil {
+				req.result <- err
+				return err
+			}
+			req.result <- nil
 		case err := <-s.closing:
 			return err
 		case err := <-recvErr:
@@ -177,7 +195,9 @@ func (s *AgentStream) serve(stream agentpb.AgentService_StreamCommandsServer, re
 func (s *AgentStream) Metadata() metadata.MD { return s.md }
 
 // Send pushes msg down the stream, encoded by the agentpb codec. It returns an
-// error if the frame cannot be encoded or the stream has ended.
+// error if the stream has ended, or if the frame cannot be encoded, which
+// ends the stream as it would on the real wire. Send blocks while gRPC flow
+// control holds the frame, so an agent that stops reading stalls it.
 func (s *AgentStream) Send(msg *agentpb.AgentMessage) error {
 	req := sendRequest{msg: msg, result: make(chan error, 1)}
 	select {
@@ -198,14 +218,21 @@ func (s *AgentStream) SendDesired(spec *clusterspec.ClusterSpec) error {
 func (s *AgentStream) Received() []*agentpb.AgentMessage { return s.frames.snapshot() }
 
 // WaitFor returns the first frame on this stream that match accepts,
-// including frames received before the call. It fails fast with
-// ErrStreamEnded if the stream ends first.
+// including frames received before the call; it does not consume frames. It
+// fails fast with ErrStreamEnded if the stream ends first.
 func (s *AgentStream) WaitFor(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
 	return s.frames.waitFor(ctx, match)
 }
 
+// WaitForNext is WaitFor over only the frames received after the call, such
+// as the observed state an agent reports after the test pushed desired state.
+func (s *AgentStream) WaitForNext(ctx context.Context, match func(*agentpb.AgentMessage) bool) (*agentpb.AgentMessage, error) {
+	return s.frames.waitForNext(ctx, match)
+}
+
 // Close ends the stream from the control-plane side with err as the RPC
-// status, then waits for it to end. A nil err ends the RPC with codes.OK;
+// status, then waits for it to end. It waits behind a Send that flow control
+// is holding. A nil err ends the RPC with codes.OK;
 // pass a status error, such as status.Error(codes.Unavailable, ...), to
 // simulate a disconnect the agent should retry.
 func (s *AgentStream) Close(err error) {
@@ -220,7 +247,8 @@ func (s *AgentStream) Close(err error) {
 func (s *AgentStream) Done() <-chan struct{} { return s.done }
 
 // Err is why the stream ended: nil if the agent closed its send side, the
-// error passed to Close, or the transport error. It is nil while the stream
+// error passed to Close, the error a failed Send returned, or the transport
+// error. It is nil while the stream
 // is open.
 func (s *AgentStream) Err() error {
 	select {

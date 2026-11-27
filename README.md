@@ -50,6 +50,12 @@ valid frame of each payload variant, equal to the newest frozen golden in
 test needs. `HasDesired`, `HasStatus`, `HasObserved` and `HasUsage` are
 matchers for `WaitFor`.
 
+`WaitFor` returns the first matching frame received so far, or waits for one;
+it does not consume frames, so calling it twice returns the same frame.
+`WaitForNext` only matches frames received after the call: use it to wait for
+the effect of something the test just did. A frame the codec cannot encode
+makes `Send` fail and ends the stream, as on the real wire.
+
 An agent's test points the agent at a `FakeControlPlane`:
 
 ```go
@@ -61,7 +67,9 @@ stream, err := cp.Accept(ctx)
 if err := stream.SendDesired(agentpbtest.DesiredFrame().Desired); err != nil {
 	t.Fatal(err)
 }
-observed, err := stream.WaitFor(ctx, agentpbtest.HasObserved)
+// The agent also reports observed state on connect; WaitForNext skips frames
+// that arrived before this call.
+observed, err := stream.WaitForNext(ctx, agentpbtest.HasObserved)
 ```
 
 A control plane's test points a `FakeAgent` at its gRPC server:

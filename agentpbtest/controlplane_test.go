@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -93,7 +94,7 @@ func TestFakeControlPlanePushesDesiredState(t *testing.T) {
 func TestFakeControlPlaneRejectsUnencodableFrame(t *testing.T) {
 	ctx := testCtx(t)
 	cp := agentpbtest.NewFakeControlPlane(t)
-	openRawStream(t, cp.Addr())
+	client := openRawStream(t, cp.Addr())
 	s, err := cp.Accept(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +103,85 @@ func TestFakeControlPlaneRejectsUnencodableFrame(t *testing.T) {
 	bad := agentpbtest.UsageFrame()
 	bad.Usage.Workloads[0].Resources[0].Quantity = math.NaN()
 	if err := s.Send(bad); err == nil {
-		t.Error("Send of a NaN quantity succeeded, want an encoding error")
+		t.Fatal("Send of a NaN quantity succeeded, want an encoding error")
+	}
+	<-s.Done()
+	if code := status.Code(s.Err()); code != codes.Internal {
+		t.Errorf("Err() = %v, want Internal", s.Err())
+	}
+	if _, err := client.Recv(); status.Code(err) != codes.Internal {
+		t.Errorf("agent saw %v, want Internal", err)
+	}
+}
+
+func TestFakeControlPlaneWaitForNextSkipsEarlierFrames(t *testing.T) {
+	ctx := testCtx(t)
+	cp := agentpbtest.NewFakeControlPlane(t)
+	client := openRawStream(t, cp.Addr())
+	s, err := cp.Accept(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	early := agentpbtest.ObservedFrame()
+	early.Observed.AgentVersion = "on-connect"
+	if err := client.Send(early); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.WaitFor(ctx, agentpbtest.HasObserved); err != nil {
+		t.Fatal(err)
+	}
+
+	got := make(chan *agentpb.AgentMessage, 2)
+	waitErr := make(chan error, 2)
+	for _, wait := range []func() (*agentpb.AgentMessage, error){
+		func() (*agentpb.AgentMessage, error) { return s.WaitForNext(ctx, agentpbtest.HasObserved) },
+		func() (*agentpb.AgentMessage, error) { return cp.WaitForNext(ctx, agentpbtest.HasObserved) },
+	} {
+		ready := make(chan struct{})
+		go func() {
+			close(ready)
+			m, err := wait()
+			got <- m
+			waitErr <- err
+		}()
+		<-ready
+	}
+	// The waiters take their starting point when they start running. The
+	// pause lets them do so before the frame goes out; if one were late it
+	// would miss the frame and time out, never pass by returning the early one.
+	time.Sleep(50 * time.Millisecond)
+	if err := client.Send(agentpbtest.ObservedFrame()); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		m := <-got
+		if err := <-waitErr; err != nil {
+			t.Fatal(err)
+		}
+		if m.Observed.AgentVersion != "0.4.0" {
+			t.Errorf("WaitForNext returned the %q frame, want the one sent after the call", m.Observed.AgentVersion)
+		}
+	}
+}
+
+func TestFakeControlPlaneCloseDropsAgents(t *testing.T) {
+	ctx := testCtx(t)
+	cp := agentpbtest.NewFakeControlPlane(t)
+	client := openRawStream(t, cp.Addr())
+	s, err := cp.Accept(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cp.Close()
+	select {
+	case <-s.Done():
+	default:
+		t.Error("stream still open after Close returned")
+	}
+	if _, err := client.Recv(); status.Code(err) != codes.Unavailable {
+		t.Errorf("agent saw %v, want Unavailable", err)
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -53,6 +55,45 @@ func TestFramesMatchGoldens(t *testing.T) {
 	}
 }
 
+var goldenName = regexp.MustCompile(`^agentmessage_([a-z]+)(?:_schema(\d+))?\.json$`)
+
+// Each builder must follow the newest golden of its variant, so freezing a
+// new schema generation moves the builders with it; and every variant with a
+// golden must have a builder.
+func TestFramesUseNewestGoldens(t *testing.T) {
+	files, err := filepath.Glob(filepath.Join("..", "agentwire", "testdata", "agentmessage_*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	newest := map[string]string{}
+	generation := map[string]int{}
+	for _, f := range files {
+		m := goldenName.FindStringSubmatch(filepath.Base(f))
+		if m == nil {
+			t.Fatalf("golden %s does not follow agentmessage_<variant>[_schema<n>].json", f)
+		}
+		gen := 1
+		if m[2] != "" {
+			if gen, err = strconv.Atoi(m[2]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if gen > generation[m[1]] {
+			generation[m[1]], newest[m[1]] = gen, filepath.Base(f)
+		}
+	}
+
+	byGolden := map[string]string{}
+	for _, b := range builders {
+		byGolden[b.golden] = b.name
+	}
+	for variant, golden := range newest {
+		if _, ok := byGolden[golden]; !ok {
+			t.Errorf("newest %s golden is %s, but no builder is pinned to it", variant, golden)
+		}
+	}
+}
+
 // A payload variant added to AgentMessage without a builder would leave the
 // planes writing their own frames for it again.
 func TestFramesCoverEveryPayload(t *testing.T) {
@@ -61,7 +102,7 @@ func TestFramesCoverEveryPayload(t *testing.T) {
 		field := msgType.Field(i)
 		covered := false
 		for _, b := range builders {
-			if !reflect.ValueOf(b.build()).Elem().Field(i).IsNil() {
+			if !reflect.ValueOf(b.build()).Elem().Field(i).IsZero() {
 				covered = true
 			}
 		}
