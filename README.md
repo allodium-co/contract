@@ -21,6 +21,7 @@ controlplane ─X→ dataplane (wire only, no code dependency)
 |------|-----------|
 | [`agentpb/`](./agentpb) | The message types + codec: `ClusterCommand`, `ClusterStatus`, `AgentMessage`, and their JSON (de)serialization. Hand-written — the wire is JSON, not compiled protobuf. |
 | [`clusterspec/`](./clusterspec) | Desired-state (`ClusterSpec`) and observed-status (`ClusterStatus`) schema — the single source of truth that replaced the old CRD mirrors. |
+| [`agentpbtest/`](./agentpbtest) | Test fakes of both ends of the stream, `FakeControlPlane` and `FakeAgent`, plus builders for a valid frame of each payload variant. For the planes' tests only. |
 | [`agentwire/`](./agentwire) | Version-skew policy in code: `MinSupportedAgentVersion`, semver classification, and the **golden round-trip test** that fails CI on any breaking wire change. |
 | [`proto/agent.proto`](./proto/agent.proto) | Human-readable **spec** of the stream (not the compiled wire format). The Go types above are canonical; this documents them. |
 
@@ -31,6 +32,52 @@ The agent dials outbound and opens one long-lived bidirectional stream; the
 control plane pushes `ClusterCommand` frames, the agent replies with
 `ClusterStatus`. See [`proto/agent.proto`](./proto/agent.proto) for the frame
 shapes and [`agentpb/`](./agentpb) for the authoritative Go definitions.
+
+## Testing a plane against the other end
+
+[`agentpbtest`](./agentpbtest) lets each plane test its side of the stream
+without deploying the other. Both fakes run real gRPC with the `agentpb` codec
+and types, so a frame that would not survive the wire fails in a test too.
+
+| Fake | Use it to test | What it does |
+|------|----------------|--------------|
+| `FakeControlPlane` | the agent (dataplane) | Listens on a loopback port. `Accept` returns each stream the agent opens, with its metadata. `WaitFor` and `Received` read the frames the agent sent. `SendDesired` and `Send` push frames down. `Close(err)` ends a stream with a gRPC status, to simulate a disconnect. |
+| `FakeAgent` | the control plane (controlplane) | Dials an address and opens one stream, with `WithMetadata` for the agent's identity. `SendStatus` (heartbeat), `SendObserved` and `SendUsage` send frames up. `WaitForDesired`, `WaitFor` and `Received` read what came down. `Err` reports how the control plane ended the stream. |
+
+`DesiredFrame`, `StatusFrame`, `ObservedFrame` and `UsageFrame` return a fresh,
+valid frame of each payload variant, equal to the newest frozen golden in
+`agentwire/testdata`. Change fields on the returned value to shape the case a
+test needs. `HasDesired`, `HasStatus`, `HasObserved` and `HasUsage` are
+matchers for `WaitFor`.
+
+An agent's test points the agent at a `FakeControlPlane`:
+
+```go
+cp := agentpbtest.NewFakeControlPlane(t)
+go runAgentUnderTest(ctx, cp.Addr()) // dials plaintext
+
+stream, err := cp.Accept(ctx)
+// ...
+if err := stream.SendDesired(agentpbtest.DesiredFrame().Desired); err != nil {
+	t.Fatal(err)
+}
+observed, err := stream.WaitFor(ctx, agentpbtest.HasObserved)
+```
+
+A control plane's test points a `FakeAgent` at its gRPC server:
+
+```go
+agent := agentpbtest.NewFakeAgent(t, lis.Addr().String(),
+	agentpbtest.WithMetadata("agent-id", "agent-1", "workspace-id", "ws-1"))
+
+if err := agent.SendUsage(agentpbtest.UsageFrame().Usage); err != nil {
+	t.Fatal(err)
+}
+desired, err := agent.WaitForDesired(ctx)
+```
+
+Every wait takes a context, so bound it with a timeout. Both fakes shut down
+when the test ends.
 
 ## Versioning & compatibility
 
